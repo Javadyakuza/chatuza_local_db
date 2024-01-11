@@ -26,6 +26,13 @@ pub struct ChatRooms {
 }
 
 #[derive(Queryable, Deserialize, Serialize, Selectable, Debug, Insertable, PartialEq)]
+#[diesel(table_name = crate::schema::chat_rooms)]
+pub struct QChatRooms {
+    pub id: Option<i32>,
+    pub chat_room_id: i32,
+    pub keypair: Vec<u8>,
+}
+#[derive(Queryable, Deserialize, Serialize, Selectable, Debug, Insertable, PartialEq)]
 #[diesel(table_name = crate::schema::messages)]
 pub struct Messages {
     pub sender_id: i32,
