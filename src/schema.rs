@@ -1,8 +1,8 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
-    chat_rooms (id) {
-        id -> Nullable<Integer>,
+    chat_rooms (pch_id) {
+        pch_id -> Integer,
         chat_room_id -> Integer,
         keypair -> Binary,
     }
@@ -10,7 +10,7 @@ diesel::table! {
 
 diesel::table! {
     messages (message_id) {
-        message_id -> Nullable<Integer>,
+        message_id -> Integer,
         sender_id -> Integer,
         recipient_id -> Integer,
         timestamp -> Timestamp,
@@ -23,11 +23,28 @@ diesel::table! {
 }
 
 diesel::table! {
-    wallet (id) {
-        id -> Nullable<Integer>,
+    user (pu_id) {
+        pu_id -> Nullable<Integer>,
         user_id -> Integer,
+        username -> Text,
+        email -> Text,
+        password -> Text,
+        bio -> Nullable<Text>,
+        pp -> Nullable<Text>,
+    }
+}
+
+diesel::table! {
+    wallet (wallet_id) {
+        wallet_id -> Integer,
+        wallet_owner_id -> Integer,
         keypair -> Binary,
     }
 }
 
-diesel::allow_tables_to_appear_in_same_query!(chat_rooms, messages, wallet,);
+diesel::allow_tables_to_appear_in_same_query!(
+    chat_rooms,
+    messages,
+    user,
+    wallet,
+);
