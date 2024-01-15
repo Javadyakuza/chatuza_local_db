@@ -4,7 +4,7 @@ diesel::table! {
     chat_rooms (pch_id) {
         pch_id -> Integer,
         chat_room_id -> Integer,
-        keypair -> Binary,
+        keypair -> Text,
     }
 }
 
@@ -29,6 +29,7 @@ diesel::table! {
         username -> Text,
         email -> Text,
         password -> Text,
+        phone_number -> Text,
         bio -> Nullable<Text>,
         pp -> Nullable<Text>,
     }
@@ -38,7 +39,7 @@ diesel::table! {
     wallet (wallet_id) {
         wallet_id -> Integer,
         wallet_owner_id -> Integer,
-        keypair -> Binary,
+        keypair -> Text,
     }
 }
 

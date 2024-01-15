@@ -4,8 +4,11 @@ pub mod db_models;
 pub mod schema;
 pub mod server_models;
 extern crate tokio;
-use crate::schema::{chat_rooms, messages, wallet};
-use db_models::{ChatRooms, Messages, NewUserIN, QChatRooms, QUser, QWallet, User, Wallet};
+use crate::{
+    db_models::NewUserOut,
+    schema::{chat_rooms, messages, wallet},
+};
+use db_models::{ChatRooms, Messages, NewUserIN, QUser, QWallet, User, Wallet};
 pub use diesel;
 pub use server_models::QUsers;
 // pub use diesel::pg::PgConnection;
@@ -34,12 +37,13 @@ pub fn init_user(_new_user_info: &NewUserIN) -> Result<QUser, Box<dyn std::error
     // sending request to the server
     let mut conn = establish_connection();
 
-    match create_user(&_new_user_info) {
+    match request_create_user(&_new_user_info) {
         Ok(q_user) => {
             // adding the user into the  local db
+            let _new_user_id: i32 = q_user.user_id;
             match diesel::insert_into(user).values(q_user).execute(&mut conn) {
-                Ok(res) => match get_wallet_with_userid(&mut conn, q_user.user_id) {
-                    Ok(q_wallet) => return Ok(q_wallet),
+                Ok(res) => match get_user_with_userid(&mut conn, _new_user_id) {
+                    Ok(q_user) => return Ok(q_user),
                     Err(e) => {
                         return Err(Box::new(std::io::Error::new(
                             std::io::ErrorKind::Other,
@@ -72,14 +76,13 @@ pub fn add_solana_wallet(
     let mut conn = establish_connection();
 
     let is_wallet_initialized: bool =
-        get_wallet_with_userid(&mut conn, new_wallet_info.user_id).is_err();
+        get_wallet_with_userid(&mut conn, new_wallet_info.wallet_owner_id).is_err();
     if reset {
         match diesel::insert_into(wallet::table)
             .values(new_wallet_info)
-            // .returning(QWallet::as_returning())
             .execute(&mut conn)
         {
-            Ok(res) => match get_wallet_with_userid(&mut conn, new_wallet_info.user_id) {
+            Ok(res) => match get_wallet_with_userid(&mut conn, new_wallet_info.wallet_owner_id) {
                 Ok(q_wallet) => return Ok(q_wallet),
                 Err(e) => {
                     return Err(Box::new(std::io::Error::new(
@@ -104,10 +107,10 @@ pub fn add_solana_wallet(
         } else {
             match diesel::insert_into(wallet::table)
                 .values(new_wallet_info)
-                // .returning(QWallet::as_returning())
                 .execute(&mut conn)
             {
-                Ok(res) => match get_wallet_with_userid(&mut conn, new_wallet_info.user_id) {
+                Ok(res) => match get_wallet_with_userid(&mut conn, new_wallet_info.wallet_owner_id)
+                {
                     Ok(q_wallet) => return Ok(q_wallet),
                     Err(e) => {
                         return Err(Box::new(std::io::Error::new(
@@ -132,14 +135,14 @@ fn get_wallet_with_userid(
     _user_id: i32,
 ) -> Result<QWallet, Box<dyn std::error::Error>> {
     let wallet_row: Vec<QWallet> = wallet
-        .filter(user_id.eq(&user_id))
-        .select(QWallet::as_select())
+        .filter(wallet::wallet_owner_id.eq(&_user_id))
+        .select(QWallet::as_returning())
         .load(_conn)
         .unwrap_or(vec![]);
     if wallet_row.len() == 1 {
         Ok(QWallet {
-            id: wallet_row[0].id,
-            user_id: wallet_row[0].user_id,
+            wallet_id: wallet_row[0].wallet_id,
+            wallet_owner_id: wallet_row[0].wallet_owner_id,
             keypair: wallet_row[0].keypair.to_owned(),
         })
     } else {
@@ -155,16 +158,19 @@ fn get_user_with_userid(
     _conn: &mut SqliteConnection,
     _user_id: i32,
 ) -> Result<QUser, Box<dyn std::error::Error>> {
-    let wallet_row: Vec<QUser> = user
+    let user_row: Vec<QUser> = user
         .filter(user::all_columns().1.eq(&_user_id))
         .select(QUser::as_select())
         .load(_conn)
         .unwrap_or(vec![]);
-    if wallet_row.len() == 1 {
+    if user_row.len() == 1 {
         Ok(QUser {
-            id: wallet_row[0].id,
-            user_id: wallet_row[0].user_id,
-            keypair: wallet_row[0].keypair.to_owned(),
+            user_id: user_row[0].user_id,
+            username: user_row[0].username.clone(),
+            email: user_row[0].email.clone(),
+            password: user_row[0].password.clone(),
+            bio: user_row[0].bio.clone(),
+            pp: user_row[0].pp.clone(),
         })
     } else {
         Err(Box::new(std::io::Error::new(
@@ -178,7 +184,7 @@ fn get_user_with_userid(
 pub fn add_chat_room(
     reset: bool,
     new_chat_room_info: &ChatRooms,
-) -> Result<QChatRooms, Box<dyn std::error::Error>> {
+) -> Result<ChatRooms, Box<dyn std::error::Error>> {
     // reset is for kp leakage, or recrating a chat room after its deleted
     let mut conn = establish_connection();
 
@@ -248,15 +254,14 @@ pub fn add_chat_room(
 fn get_chat_room_with_chat_room_id(
     _conn: &mut SqliteConnection,
     _user_id: i32,
-) -> Result<QChatRooms, Box<dyn std::error::Error>> {
-    let wallet_row: Vec<QChatRooms> = chat_rooms
+) -> Result<ChatRooms, Box<dyn std::error::Error>> {
+    let wallet_row: Vec<ChatRooms> = chat_rooms
         .filter(chat_room_id.eq(&chat_room_id))
-        .select(QChatRooms::as_select())
+        .select(ChatRooms::as_select())
         .load(_conn)
         .unwrap_or(vec![]);
     if wallet_row.len() == 1 {
-        Ok(QChatRooms {
-            id: wallet_row[0].id,
+        Ok(ChatRooms {
             chat_room_id: wallet_row[0].chat_room_id,
             keypair: wallet_row[0].keypair.to_owned(),
         })
@@ -298,7 +303,7 @@ fn delete_msg() {
 
 // EH
 #[tokio::main]
-pub async fn create_user(_new_user_info: &NewUserIN) -> Result<QUser, String> {
+pub async fn request_create_user(_new_user_info: &NewUserIN) -> Result<QUser, String> {
     let client = Client::new();
 
     let form_data = [
@@ -355,14 +360,16 @@ pub async fn create_user(_new_user_info: &NewUserIN) -> Result<QUser, String> {
 
     println!("{}", response_val);
 
-    match response_val["Ok"]["QUser"].as_array() {
+    match response_val["Ok"].as_array() {
         Some(_new_user) => {
             let obj = _new_user[0].as_object().unwrap();
             return Ok(QUser {
-                user_id: obj["user_id"].as_i64().unwrap() as i32,
+                user_id: obj["user_id"].as_str().unwrap().parse::<i32>().unwrap(),
                 username: obj["username"].as_str().unwrap().to_string(),
                 email: obj["email"].as_str().unwrap().to_string(),
                 password: obj["password"].as_str().unwrap().to_string(),
+                bio: Some(obj["bio"].as_str().unwrap().to_string()),
+                pp: Some(obj["profile_picture"].as_str().unwrap().to_string()),
             });
         }
         None => {
