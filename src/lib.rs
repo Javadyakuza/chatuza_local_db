@@ -169,6 +169,7 @@ fn get_user_with_userid(
             username: user_row[0].username.clone(),
             email: user_row[0].email.clone(),
             password: user_row[0].password.clone(),
+            phone_number: user_row[0].phone_number.clone(),
             bio: user_row[0].bio.clone(),
             pp: user_row[0].pp.clone(),
         })
@@ -368,13 +369,14 @@ pub async fn request_create_user(_new_user_info: &NewUserIN) -> Result<QUser, St
                 username: obj["username"].as_str().unwrap().to_string(),
                 email: obj["email"].as_str().unwrap().to_string(),
                 password: obj["password"].as_str().unwrap().to_string(),
+                phone_number: obj["phone_number"].as_str().unwrap().to_string(),
                 bio: Some(obj["bio"].as_str().unwrap().to_string()),
                 pp: Some(obj["profile_picture"].as_str().unwrap().to_string()),
             });
         }
         None => {
             return Err(format!(
-                "failed to read the signatures ! \n server returned {}",
+                "failed to parse the user object ! \n server returned {}",
                 response_val
             ))
         }

@@ -45,6 +45,7 @@ pub struct QUser {
     pub username: String,
     pub email: String,
     pub password: String,
+    pub phone_number: String,
     pub bio: Option<String>,
     pub pp: Option<String>,
 }
